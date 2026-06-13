@@ -21,7 +21,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:8000/api/login", {
+      const response = await fetch("http://localhost:8000/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -37,17 +37,17 @@ const Login = () => {
       if (response.ok) {
         alert("Login Successful");
 
-        // Save token if backend returns one
-        if (data.token) {
-          localStorage.setItem("token", data.token);
+		// Save the access_token returned by the updated backend
+        if (data.access_token) {
+          localStorage.setItem("token", data.access_token);
         }
 
         console.log(data);
 
         // Redirect after login
-        navigate("/dashboard");
+        navigate("/pos");
       } else {
-        alert(data.message || "Invalid Credentials");
+        alert(data.detail || "Invalid Credentials");
       }
     } catch (error) {
       console.error(error);
