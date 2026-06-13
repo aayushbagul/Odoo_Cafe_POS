@@ -3,7 +3,7 @@ import odooLogo from "../../assets/odoo.svg";
 
 const Signup = () => {
   return (
-    <div className="h-auto font-inter flex justify-center items-center bg-[#f6f6f6] px-4">
+    <div className="min-h-screen font-inter flex justify-center items-center bg-[#f6f6f6] px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
         <div className="flex justify-center mb-4">
           <img
@@ -12,7 +12,7 @@ const Signup = () => {
             className="h-10 object-contain"
           />
         </div>
-        <div className="text-center mb-6">
+        <div className="text-center mb-3">
           <h1 className="text-xl font-bold text-[#714B67]">
             Sign Up
           </h1>
@@ -28,7 +28,7 @@ const Signup = () => {
             <input
               type="text"
               placeholder="Enter your name"
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
             />
           </div>
 
@@ -39,7 +39,7 @@ const Signup = () => {
             <input
               type="email"
               placeholder="Enter your email or username"
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
             />
           </div>
           <div>
@@ -49,7 +49,7 @@ const Signup = () => {
             <input
               type="email"
               placeholder="Enter your email or username"
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
             />
           </div>
 
@@ -60,7 +60,7 @@ const Signup = () => {
             <input
               type="password"
               placeholder="Enter your password"
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
             />
           </div>
 
@@ -71,7 +71,7 @@ const Signup = () => {
             <input
               type="password"
               placeholder="Confirm your password"
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
             />
           </div>
 
@@ -82,7 +82,7 @@ const Signup = () => {
             Sign Up
           </button>
         </form>
-        <div className="text-center mt-5">
+        <div className="text-center mt-4">
           <p className="text-gray-600">
             Already have an account?{" "}
             <span className="text-[#714B67] font-semibold cursor-pointer hover:underline">
