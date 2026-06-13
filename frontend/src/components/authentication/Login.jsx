@@ -1,9 +1,61 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import odooLogo from "../../assets/odoo.svg";
 
 const Login = () => {
-   return (
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    usernameOrEmail: "",
+    password: "",
+  });
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usernameOrEmail: formData.usernameOrEmail,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Login Successful");
+
+        // Save token if backend returns one
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+        }
+
+        console.log(data);
+
+        // Redirect after login
+        navigate("/dashboard");
+      } else {
+        alert(data.message || "Invalid Credentials");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Server Error");
+    }
+  };
+
+  return (
     <div className="min-h-screen font-inter flex flex-col justify-center items-center bg-[#f6f6f6] px-4">
       <img src={odooLogo} alt="Odoo Logo" className="h-12 mb-6" />
 
@@ -12,24 +64,34 @@ const Login = () => {
           Login
         </h1>
 
-        <form className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-gray-700 mb-1">
               Email / Username
             </label>
             <input
               type="text"
+              name="usernameOrEmail"
+              value={formData.usernameOrEmail}
+              onChange={handleChange}
               placeholder="Enter email or username"
               className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              required
             />
           </div>
 
           <div>
-            <label className="block text-gray-700 mb-1">Password</label>
+            <label className="block text-gray-700 mb-1">
+              Password
+            </label>
             <input
               type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               placeholder="Enter password"
               className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              required
             />
           </div>
 
