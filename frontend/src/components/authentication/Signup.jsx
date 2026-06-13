@@ -3,7 +3,7 @@ import odooLogo from "../../assets/odoo.svg";
 
 const Signup = () => {
   return (
-    <div className="min-h-screen font-inter flex justify-center items-center bg-[#f6f6f6] px-4">
+    <div className="h-auto font-inter flex justify-center items-center bg-[#f6f6f6] px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
         <div className="flex justify-center mb-4">
           <img
@@ -34,7 +34,17 @@ const Signup = () => {
 
           <div>
             <label className="block mb-1 font-medium text-gray-700">
-              Email / Username
+              Username
+            </label>
+            <input
+              type="email"
+              placeholder="Enter your email or username"
+              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 font-medium text-gray-700">
+              Email
             </label>
             <input
               type="email"
