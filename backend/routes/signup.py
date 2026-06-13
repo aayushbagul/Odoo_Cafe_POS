@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from backend.schemas.signup import SignUp
-from backend.tortoise_models.signup import User
-from backend.schemas.signup import Login
+from Odoo_Cafe_POS.backend.schemas.signup import SignUp
+from Odoo_Cafe_POS.backend.tortoise_models.signup import User
+from Odoo_Cafe_POS.backend.schemas.signup import Login
 from tortoise.expressions import Q
 
 router = APIRouter()

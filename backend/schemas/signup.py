@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
-from typing import Optional,Annotated
+from typing import Annotated
 
 
 valid_domains = ["odoo.com"]
@@ -25,31 +25,34 @@ must_contain_in_password = {
 }
 
 class SignUp(BaseModel):
-    name: Annotated[str,Field(title="User's name",max_length=100)]
-    username: Annotated[str,Field(title="User's username",max_length=20)]
-    email: Annotated[str,Field(title="User's email"),EmailStr]
-    password: Annotated[str,Field(title="User's password",max_length=100)]
+    name: Annotated[str, Field(title="User's name", max_length=100)]
+    username: Annotated[str, Field(title="User's username", max_length=20)]
+    email: Annotated[EmailStr, Field(title="User's email")]
+    password: Annotated[str, Field(title="User's password", max_length=100)]
+    confirm_password: Annotated[str, Field(title="Confirm password", max_length=100)]
 
     @field_validator('email')
+    @classmethod
     def validate_email(cls, value):
         domain = value.split('@')[-1]
         if domain not in valid_domains:
-            raise ValueError("Email address is not valid")
+            raise ValueError("Email domain must be odoo.com")
         return value
 
     @field_validator('password')
+    @classmethod
     def validate_password(cls, value):
-        if not any(char in must_contain_in_password['uppercase'] for char in value):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not any(char in must_contain_in_password["lowercase"] for char in value):
-            raise ValueError("Password must contain at least one lowercase letter")
-        if not any(char in must_contain_in_password['numbers'] for char in value):
-            raise ValueError("Password must contain at least one number")
-        if not any(char in must_contain_in_password['symbols'] for char in value):
-            raise ValueError("Password must contain at least one symbol")
-
+        checks = {
+            'uppercase': 'at least one uppercase letter',
+            'lowercase': 'at least one lowercase letter',
+            'numbers': 'at least one number',
+            'symbols': 'at least one symbol',
+        }
+        for key, msg in checks.items():
+            if not any(c in must_contain_in_password[key] for c in value):
+                raise ValueError(f'Password must contain {msg}')
         return value
-    confirm_password: Annotated[str,Field(title="User's password",max_length=100)]
+
     @model_validator(mode="after")
     def validate_confirm_password(self):
         if self.password != self.confirm_password:
@@ -57,8 +60,10 @@ class SignUp(BaseModel):
         return self
 
 class Login(BaseModel):
-    username_or_email: str = Field(title="Username or Email", max_length=100)
-    password: Annotated[str,Field(title="User's password",max_length=100)]
+    username_or_email: Annotated[str, Field(title="Username or Email", max_length=100, alias="usernameOrEmail")]
+    password: Annotated[str, Field(title="User's password", max_length=100)]
+
+    model_config = {"populate_by_name": True}
 
 
 
