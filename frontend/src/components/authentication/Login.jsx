@@ -1,13 +1,12 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import odooLogo from "../../assets/odoo.svg";
 
 const Login = () => {
-  return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#f6f6f6] px-4">
-      {/* Logo */}
+   return (
+    <div className="min-h-screen font-inter flex flex-col justify-center items-center bg-[#f6f6f6] px-4">
       <img src={odooLogo} alt="Odoo Logo" className="h-12 mb-6" />
 
-      {/* Login Card */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
         <h1 className="text-center text-2xl font-semibold text-[#714B67] mb-6">
           Login
@@ -15,7 +14,9 @@ const Login = () => {
 
         <form className="space-y-4">
           <div>
-            <label className="block text-gray-700 mb-1">Email / Username</label>
+            <label className="block text-gray-700 mb-1">
+              Email / Username
+            </label>
             <input
               type="text"
               placeholder="Enter email or username"
@@ -34,17 +35,19 @@ const Login = () => {
 
           <button
             type="submit"
-            className="w-full bg-[#714B67] text-white py-3 rounded-md hover:bg-[#604058]"
+            className="w-full bg-[#714B67] text-white py-4 rounded-md hover:bg-[#604058]"
           >
             Login
           </button>
 
-          <button
-            type="button"
-            className="w-full border border-[#714B67] text-[#714B67] py-3 rounded-md hover:bg-[#f5f0f4]"
-          >
-            Sign Up
-          </button>
+          <Link to="/signup">
+            <button
+              type="button"
+              className="w-full border mt-3 border-[#714B67] text-[#714B67] py-3 rounded-md hover:bg-[#f5f0f4]"
+            >
+              Sign Up
+            </button>
+          </Link>
         </form>
       </div>
     </div>

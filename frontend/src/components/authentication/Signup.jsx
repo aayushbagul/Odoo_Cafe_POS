@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import odooLogo from "../../assets/odoo.svg";
 
 const Signup = () => {
@@ -6,25 +7,15 @@ const Signup = () => {
     <div className="min-h-screen font-inter flex justify-center items-center bg-[#f6f6f6] px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
         <div className="flex justify-center mb-4">
-          <img
-            src={odooLogo}
-            alt="Odoo Logo"
-            className="h-10 object-contain"
-          />
+          <img src={odooLogo} alt="Odoo Logo" className="h-10 object-contain" />
         </div>
         <div className="text-center mb-3">
-          <h1 className="text-xl font-bold text-[#714B67]">
-            Sign Up
-          </h1>
-          <p className="text-gray-500 mt-2">
-            Create your Odoo POS account
-          </p>
+          <h1 className="text-xl font-bold text-[#714B67]">Sign Up</h1>
+          <p className="text-gray-500 mt-2">Create your Odoo POS account</p>
         </div>
         <form className="flex flex-col gap-4">
           <div>
-            <label className="block mb-1 font-medium text-gray-700">
-              Name
-            </label>
+            <label className="block mb-1 font-medium text-gray-700">Name</label>
             <input
               type="text"
               placeholder="Enter your name"
@@ -85,9 +76,11 @@ const Signup = () => {
         <div className="text-center mt-4">
           <p className="text-gray-600">
             Already have an account?{" "}
-            <span className="text-[#714B67] font-semibold cursor-pointer hover:underline">
-              Login
-            </span>
+            <Link to="/login">
+              <span className="text-[#714B67] font-semibold cursor-pointer hover:underline">
+                Login
+              </span>
+            </Link>
           </p>
         </div>
       </div>

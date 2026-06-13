@@ -1,16 +1,16 @@
-import { useState } from 'react'
-import Signup from './components/authentication/Signup'
+import { Routes, Route } from "react-router-dom";
+import Login from "./components/authentication/Login";
+import Signup from "./components/authentication/Signup";
 import "@fontsource/inter";
 
-
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div>
-      <Signup/>
-    </div>
-  )
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="*" element={<Login />} />
+    </Routes>
+  );
 }
 
-export default App
+export default App;
