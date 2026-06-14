@@ -8,10 +8,12 @@ class Order(Model):
     customer = fields.ForeignKeyField('models.Customer', related_name='orders', null=True)
     employee = fields.ForeignKeyField('models.User', related_name='orders', null=True)
     status = fields.CharField(max_length=20, default='draft')  # draft, paid, cancelled
+    kds_status = fields.CharField(max_length=20, default='to_cook')  # to_cook, preparing, completed
     subtotal = fields.DecimalField(max_digits=10, decimal_places=2, default=0)
     tax = fields.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = fields.DecimalField(max_digits=10, decimal_places=2, default=0)
     payment_method = fields.CharField(max_length=50, null=True)  # cash, card, upi
+    session = fields.ForeignKeyField('models.POSSession', related_name='orders', null=True)
     notes = fields.TextField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -26,6 +28,8 @@ class OrderItem(Model):
     quantity = fields.IntField(default=1)
     unit_price = fields.DecimalField(max_digits=10, decimal_places=2)
     subtotal = fields.DecimalField(max_digits=10, decimal_places=2)
+    item_status = fields.CharField(max_length=20, default='pending')
+    notes = fields.TextField(null=True)
 
     class Meta:
         table = "order_items"

@@ -1,13 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from schemas.signup import SignUp
+from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import Request
+from schemas.signup import SignUp, Login
 from tortoise_models.signup import User
 from fastapi.security import OAuth2PasswordBearer
+from slowapi.util import get_remote_address
 import jwt
 from schemas.signup import Login
 from tortoise.expressions import Q
 from routes.encryption_manager import EncryptionManager
 from datetime import datetime, timedelta, timezone
-
+from .rate_limiter import limiter
 
 
 router = APIRouter()
@@ -47,7 +49,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 @router.post("/register")
-async def register_user(user_data: SignUp):
+@limiter.limit("5/hour") # Max 5 registrations per hour per IP
+async def register_user(request: Request, user_data: SignUp):
     manager = EncryptionManager()
     enc_name = manager.encrypt(user_data.name)
     enc_username = manager.encrypt(user_data.username)
@@ -64,31 +67,40 @@ async def register_user(user_data: SignUp):
         username=enc_username,
         email=enc_email,
         password=enc_password,
+        role=user_data.role if hasattr(user_data, 'role') else "cashier"
     )
 
     return {"message": "User created successfully!", "user_id": new_user.id}
 
 
 @router.post("/login")
-async def login_user(login_data: Login):
-    manager = EncryptionManager()
-    enc_username_or_email = manager.encrypt(login_data.username_or_email)
-    enc_password = manager.encrypt(login_data.password)
+@limiter.limit("10/minute") 
+async def login_user(request: Request, login_data: Login): 
+    # 1. Get whatever string the user typed (handles 'email', 'username', or 'username_or_email')
+    search_term = getattr(login_data, 'username_or_email', None) or \
+                  getattr(login_data, 'email', None) or \
+                  getattr(login_data, 'username', None)
+
+    if not search_term:
+        raise HTTPException(status_code=400, detail="Missing username or email")
+
+    # 2. Search the database for EITHER the email OR the username
     user = await User.get_or_none(
-        Q(email=enc_username_or_email) | Q(username=enc_username_or_email)
+        Q(email=search_term) | Q(username=search_term)
     )
 
-    if not user:
+    # 3. Check if user exists and password matches
+    if not user or user.password != login_data.password:
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    if user.password != enc_password:
-        raise HTTPException(status_code=400, detail="Invalid credentials")
-    dec_username_or_email = manager.decrypt(user.username)
+    # 4. Generate token
     access_token = create_access_token(data={"sub": user.username})
+
     return {
         "message": "Login successful!",
         "access_token": access_token,
         "token_type": "bearer",
         "user_id": user.id,
-        "username": dec_username_or_email,
+        "username": user.username,
+        "role": user.role
     }

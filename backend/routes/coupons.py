@@ -1,23 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from tortoise_models.coupon import Coupon
-from tortoise_models.signup import User
 from schemas.coupon import CouponCreate, CouponResponse, CouponValidateRequest, CouponValidateResponse
-from dependencies import require_role, get_current_user
 from typing import List
 from decimal import Decimal
 
 router = APIRouter()
 
 @router.get("", response_model=List[CouponResponse])
-async def get_coupons(current_user: User = Depends(get_current_user)):
-    # Accessible to all logged-in users (cashiers need to see available coupons)
+async def get_coupons():
     return await Coupon.all()
 
 @router.post("", response_model=CouponResponse)
-async def create_coupon(
-    coupon: CouponCreate, 
-    current_user: User = Depends(require_role(["admin"])) # Admin only
-):
+async def create_coupon(coupon: CouponCreate):
     # Ensure code is uppercase and unique
     exists = await Coupon.filter(code=coupon.code.upper()).exists()
     if exists:
@@ -31,10 +25,7 @@ async def create_coupon(
     return new_coupon
 
 @router.post("/validate", response_model=CouponValidateResponse)
-async def validate_coupon(
-    request: CouponValidateRequest, 
-    current_user: User = Depends(get_current_user) # Accessible to all logged-in users (cashiers)
-):
+async def validate_coupon(request: CouponValidateRequest):
     # Find active coupon matching the code (case-insensitive)
     coupon = await Coupon.get_or_none(code=request.code.upper(), is_active=True)
     

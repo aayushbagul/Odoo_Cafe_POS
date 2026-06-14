@@ -1,8 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
+from tortoise.expressions import Q
 from tortoise_models.order import Order, OrderItem
 from tortoise_models.product import Product
 from tortoise_models.table import Table
+from tortoise_models.session import POSSession
+from tortoise_models.signup import User
+from dependencies import get_current_user
 from schemas.order import OrderCreate, OrderUpdate, OrderResponse
 from reportlab.lib.pagesizes import A6
 from reportlab.pdfgen import canvas
@@ -90,14 +94,21 @@ def generate_receipt_pdf(order, filepath):
     c.save()
 
 @router.get("", response_model=List[OrderResponse])
-async def get_orders(table_id: int = None, status: str = None):
-    query = Order.all()
+async def get_orders(session_id: int = None, table_id: int = None, status: str = None, search: str = None):
+    query = Order.all().prefetch_related('table', 'customer', 'items__product')
+
+    if session_id:
+        query = query.filter(session_id=session_id)
     if table_id:
         query = query.filter(table_id=table_id)
     if status:
         query = query.filter(status=status)
-    orders = await query.prefetch_related('table', 'customer', 'items__product')
-    return orders
+    if search:
+        query = query.filter(
+            Q(order_number__icontains=search) | 
+            Q(customer__name__icontains=search)
+        )
+    return await query.order_by("-created_at")
 
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(order_id: int):
@@ -109,7 +120,9 @@ async def get_order(order_id: int):
     return order
 
 @router.post("", response_model=OrderResponse)
-async def create_order(order: OrderCreate):
+async def create_order(order: OrderCreate, current_user: User = Depends(get_current_user)):
+    session = await POSSession.filter(user=current_user, status="open").first()
+
     # Generate order number
     order_number = generate_order_number()
     
@@ -128,7 +141,9 @@ async def create_order(order: OrderCreate):
         notes=order.notes,
         subtotal=subtotal,
         tax=tax,
-        total=total
+        total=total,
+        session=session,
+	    kds_status='to_cook'
     )
     
     # Create order items

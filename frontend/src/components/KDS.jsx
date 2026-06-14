@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import SharedHeader from './SharedHeader';
+import SharedDrawer from './SharedDrawer';
 import { 
   IconMenu2, IconSearch, IconRefresh, IconUserCircle, 
   IconX, IconCheck, IconClock, IconAlertCircle, IconLoader,
-  IconChefHat, IconFlame, IconChecklist, IconList, IconArrowRight
+  IconChefHat, IconFlame, IconChecklist, IconList
 } from '@tabler/icons-react';
 
 const API_BASE_URL = "http://localhost:8000/api";
@@ -87,26 +89,14 @@ export default function KDS() {
     setToast({ message, type });
   };
 
-  // UPDATED: Cycle through stages instead of always going to completed
-  const handleOrderStatusChange = async (orderId, currentStatus) => {
-    // Define the workflow progression
-    const statusFlow = ['to_cook', 'preparing', 'completed'];
-    const currentIndex = statusFlow.indexOf(currentStatus);
-    const nextStatus = statusFlow[(currentIndex + 1) % statusFlow.length];
-    
-    const statusLabels = {
-      'to_cook': 'To Cook',
-      'preparing': 'Preparing',
-      'completed': 'Completed'
-    };
-    
+  const handleOrderStatusChange = async (orderId, newStatus) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/kds/orders/${orderId}/status?kds_status=${nextStatus}`, {
+      const response = await fetch(`${API_BASE_URL}/kds/orders/${orderId}/status?kds_status=${newStatus}`, {
         method: 'PATCH'
       });
       
       if (response.ok) {
-        showToast(`Order moved to ${statusLabels[nextStatus]}`, 'success');
+        showToast(`Order marked as ${newStatus.replace('_', ' ')}`, 'success');
         fetchKDSData();
       } else {
         throw new Error('Failed to update order status');
@@ -192,62 +182,16 @@ export default function KDS() {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
-  // NEW: Get next status and button label
-  const getNextStatus = (currentStatus) => {
-    const statusFlow = ['to_cook', 'preparing', 'completed'];
-    const currentIndex = statusFlow.indexOf(currentStatus);
-    return statusFlow[(currentIndex + 1) % statusFlow.length];
-  };
-
-  const getActionButtonLabel = (currentStatus) => {
-    const labels = {
-      'to_cook': 'Start Preparing',
-      'preparing': 'Mark as Completed',
-      'completed': 'Reset to To Cook'
-    };
-    return labels[currentStatus] || 'Update Status';
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       {/* Toast Notifications */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 lg:gap-6">
-            <div className="bg-[#714B67] text-white px-3 lg:px-4 py-2 rounded-lg font-bold text-sm lg:text-xl">
-              KDS
-            </div>
-            <h1 className="text-lg lg:text-2xl font-bold text-gray-800 hidden sm:block">Kitchen Display</h1>
-            <button 
-              onClick={fetchKDSData}
-              disabled={isLoading}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh"
-            >
-              <IconRefresh size={20} className={isLoading ? 'animate-spin' : ''} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 lg:gap-3">
-            <div className="hidden md:flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
-              <IconClock size={16} />
-              <span className="font-medium">Auto-refresh: 10s</span>
-            </div>
-            <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-[#714B67] flex items-center justify-center font-bold text-white text-sm">
-              @
-            </div>
-            <button 
-              onClick={() => setIsDrawerOpen(!isDrawerOpen)} 
-              className="p-2 hover:bg-gray-100 rounded-md lg:hidden"
-            >
-              <IconMenu2 size={22} />
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Shared Header */}
+      <SharedHeader 
+        onMenuClick={() => setIsDrawerOpen(true)}
+        showSearch={false} // KDS doesn't need the search bar in header
+      />
 
       {/* Main Content */}
       <div className="flex h-[calc(100vh-65px)]">
@@ -390,111 +334,120 @@ export default function KDS() {
           </div>
 
           {/* Order Cards Grid */}
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {isLoading && orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64">
-                <IconLoader size={48} className="animate-spin text-[#714B67] mb-4" />
-                <p className="text-gray-600 font-medium">Loading orders...</p>
-              </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center h-64 bg-red-50 rounded-lg border-2 border-red-200">
-                <IconAlertCircle size={48} className="text-red-500 mb-4" />
-                <p className="text-red-700 font-medium mb-2">{error}</p>
-                <button 
-                  onClick={fetchKDSData}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <IconChecklist size={64} className="text-gray-300 mb-4" />
-                <p className="text-gray-500 font-medium text-lg">No orders in this status</p>
-                <p className="text-gray-400 text-sm mt-1">Orders will appear here when created</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-6">
-                {orders.map(order => (
-                  <div
-                    key={order.id}
-                    onClick={() => handleOrderStatusChange(order.id, order.kds_status)}
-                    className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-4 lg:p-5 cursor-pointer hover:shadow-xl transition-all hover:border-[#714B67] group"
-                  >
-                    {/* Order Header */}
-                    <div className="flex justify-between items-start mb-3 gap-2">
-                      {/* Text Container: flex-1 min-w-0 allows it to shrink properly */}
-                      <div className="flex-1 min-w-0">
-                        <h3 
-                          className="text-xl lg:text-2xl font-bold text-gray-800 group-hover:text-[#714B67] transition-colors truncate"
-                          title={order.order_number}
-                        >
-                          #{order.order_number}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {getTimeAgo(order.created_at)}
-                        </p>
-                      </div>
-                      
-                      {/* Status Badge: flex-shrink-0 ensures it never gets squished */}
-                      <span className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-bold uppercase whitespace-nowrap ${
-                        order.kds_status === 'to_cook' ? 'bg-red-100 text-red-700' :
-                        order.kds_status === 'preparing' ? 'bg-orange-100 text-orange-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        {order.kds_status.replace('_', ' ')}
-                      </span>
-                    </div>
-
-                    {/* Table Info */}
-                    <div className="bg-gray-50 rounded-lg p-2 mb-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Table:</span>
-                        <span className="font-bold text-gray-800">{order.table_number}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm mt-1">
-                        <span className="text-gray-600">Items:</span>
-                        <span className="font-bold text-gray-800">{order.items.length}</span>
-                      </div>
-                    </div>
-
-                    {/* Order Items */}
-                    <div className="space-y-2 mb-3">
-                      {order.items.map(item => (
-                        <div
-                          key={item.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleItemStatusToggle(item.id, item.item_status);
-                          }}
-                          className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all ${
-                            item.item_status === 'prepared' 
-                              ? 'bg-green-50 border border-green-200' 
-                              : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
-                          }`}
-                        >
-                          <span className={`font-medium text-sm ${getItemColor(item.item_status)}`}>
-                            <span className="font-bold">{item.quantity}x</span> {item.product_name}
-                          </span>
-                          {item.item_status === 'prepared' && (
-                            <IconCheck size={18} className="text-green-600 flex-shrink-0" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* UPDATED: Dynamic Action Button */}
-                    <button className="w-full py-2 bg-[#714B67] text-white rounded-lg font-semibold text-sm hover:bg-[#5a3b52] transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
-                      {getActionButtonLabel(order.kds_status)}
-                      <IconArrowRight size={16} />
-                    </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-6">
+            {orders.map(order => (
+              <div
+                key={order.id}
+                className={`bg-white rounded-xl shadow-md border-2 p-4 lg:p-5 transition-all ${
+                  order.kds_status === 'to_cook' ? 'border-red-300' :
+                  order.kds_status === 'preparing' ? 'border-orange-300' :
+                  'border-green-300'
+                }`}
+              >
+                {/* Order Header */}
+                <div className="flex justify-between items-start mb-3 gap-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 
+                      className="text-xl lg:text-2xl font-bold text-gray-800 truncate"
+                      title={order.order_number}
+                    >
+                      #{order.order_number}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {getTimeAgo(order.created_at)}
+                    </p>
                   </div>
-                ))}
+                  
+                  <span className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-bold uppercase whitespace-nowrap ${
+                    order.kds_status === 'to_cook' ? 'bg-red-100 text-red-700' :
+                    order.kds_status === 'preparing' ? 'bg-orange-100 text-orange-700' :
+                    'bg-green-100 text-green-700'
+                  }`}>
+                    {order.kds_status.replace('_', ' ')}
+                  </span>
+                </div>
+
+                {/* Table Info */}
+                <div className="bg-gray-50 rounded-lg p-2 mb-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Table:</span>
+                    <span className="font-bold text-gray-800">{order.table_number}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-1">
+                    <span className="text-gray-600">Items:</span>
+                    <span className="font-bold text-gray-800">{order.items.length}</span>
+                  </div>
+                </div>
+
+                {/* Order Items */}
+                <div className="space-y-2 mb-4">
+                  {order.items.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemStatusToggle(item.id, item.item_status);
+                      }}
+                      className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all ${
+                        item.item_status === 'prepared' 
+                          ? 'bg-green-50 border border-green-200' 
+                          : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      <span className={`font-medium text-sm ${getItemColor(item.item_status)}`}>
+                        <span className="font-bold">{item.quantity}x</span> {item.product_name}
+                      </span>
+                      {item.item_status === 'prepared' && (
+                        <IconCheck size={18} className="text-green-600 flex-shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Stage-Specific Action Buttons */}
+                <div className="space-y-2">
+                  {order.kds_status === 'to_cook' && (
+                    <button
+                      onClick={() => handleOrderStatusChange(order.id, 'preparing')}
+                      className="w-full py-3 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                    >
+                      <IconChefHat size={20} />
+                      Start Preparing
+                    </button>
+                  )}
+
+                  {order.kds_status === 'preparing' && (
+                    <button
+                      onClick={() => handleOrderStatusChange(order.id, 'completed')}
+                      className="w-full py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                    >
+                      <IconCheck size={20} />
+                      Mark as Completed
+                    </button>
+                  )}
+
+                  {order.kds_status === 'completed' && (
+                    <div className="w-full py-3 bg-green-100 text-green-700 rounded-lg font-bold text-center flex items-center justify-center gap-2">
+                      <IconCheck size={20} />
+                      Order Ready
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </main>
       </div>
+      {/* Shared Drawer */}
+      <SharedDrawer 
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        activePage="kds"
+        onOpenProductManager={() => navigate('/dashboard')} // Navigate to POS for product management
+        onOpenCategoryManager={() => navigate('/dashboard')}
+        onOpenCouponManager={() => navigate('/dashboard')}
+        onOpenReports={() => navigate('/dashboard')}
+      />
     </div>
   );
 }

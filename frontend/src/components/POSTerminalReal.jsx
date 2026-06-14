@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
-import ProductManager from '../components/ProductManager';
+import { useNavigate } from 'react-router-dom';
+import ProductManager from './ProductManager';
+import SharedHeader from './SharedHeader';
+import SharedDrawer from './SharedDrawer';
+import CategoryManager from './CategoryManager';
+import CouponManager from './CouponManager';
+import Reports from './Reports';
+import EmployeeManager from './EmployeeManager';
+import PaymentMethodManager from './PaymentMethodManager';
+import ReservationManager from './ReservationManager';
+import SessionScreen from './SessionScreen';
+import OrderListView from './OrderListView';
+import CustomerManager from './CustomerManager';
+
 import { 
   IconSearch, IconPrinter, IconCircleX, IconShare, IconWifi, IconBattery3, 
   IconMenu2, IconRefresh, IconUserCircle, IconDiscount2, IconSend, 
   IconDeviceMobile, IconCreditCard, IconX, IconTrash, IconCheck, IconCash,
-  IconShoppingCart 
+  IconShoppingCart, IconClipboardList, IconUsersGroup, IconUsers,
+  IconReportMoney, IconClock
 } from '@tabler/icons-react';
 
 const API_BASE_URL = "http://localhost:8000/api";
@@ -40,6 +54,9 @@ export const ReusableCart = ({
                 </div>
                 <span className="font-bold text-sm text-[#714B67]">₹{item.line_total.toFixed(2)}</span>
               </div>
+              {item.discount > 0 && (
+                <p className="text-xs text-green-600 mt-1">Discount: -₹{item.discount.toFixed(2)}</p>
+              )}
             </div>
           ))
         )}
@@ -72,34 +89,46 @@ export const ReusableCart = ({
 };
 
 // ==========================================
-// REUSABLE COMPONENT 2: PAYMENT METHODS
+// REUSABLE COMPONENT 2: PAYMENT METHODS (DYNAMIC)
 // ==========================================
 export const ReusablePayment = ({
   activePayment, setActivePayment, total,
   cashReceived, setCashReceived, change,
-  cardRef, setCardRef, onConfirmPayment, qrCodeUrl
+  cardRef, setCardRef, onConfirmPayment, qrCodeUrl,
+  paymentMethods // NEW: dynamic payment methods from backend
 }) => {
+  // Filter only enabled methods
+  const enabledMethods = paymentMethods.filter(m => m.is_enabled);
+  
+  const getIcon = (type) => {
+    switch(type) {
+      case 'cash': return <IconCash size={28} />;
+      case 'upi': return <IconDeviceMobile size={28} />;
+      case 'card': return <IconCreditCard size={28} />;
+      default: return <IconCash size={28} />;
+    }
+  };
+
   return (
     <>
       <div className="grid grid-cols-3 gap-4 mb-6">
-        {[
-          { id: 'Cash', icon: <IconCash size={28} /> },
-          { id: 'UPI', icon: <IconDeviceMobile size={28} /> },
-          { id: 'Card', icon: <IconCreditCard size={28} /> }
-        ].map(m => (
+        {enabledMethods.map(m => (
           <button
             key={m.id}
-            onClick={() => setActivePayment(m.id)}
+            onClick={() => setActivePayment(m.type)}
             className={`flex flex-col items-center justify-center gap-2 py-6 rounded-lg border font-semibold text-lg transition-all ${
-              activePayment === m.id 
+              activePayment === m.type 
                 ? 'border-[#714B67] bg-purple-50 text-[#714B67] shadow-sm' 
                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
             }`}
           >
-            {m.icon}
-            {m.id}
+            {getIcon(m.type)}
+            <span className="text-sm">{m.name}</span>
           </button>
         ))}
+        {enabledMethods.length === 0 && (
+          <p className="col-span-3 text-center text-red-500 py-4">No payment methods enabled</p>
+        )}
       </div>
 
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-center shadow-sm">
@@ -107,7 +136,7 @@ export const ReusablePayment = ({
         <p className="text-sm text-gray-500 font-semibold mt-1 uppercase tracking-wider">{activePayment}</p>
       </div>
 
-      {activePayment === 'Cash' && (
+      {activePayment === 'cash' && (
         <div className="flex gap-4 flex-1">
           <div className="flex-1 grid grid-cols-3 gap-3">
             {[1,2,3,4,5,6,7,8,9,'+/-',0,'x'].map((key, i) => (
@@ -146,7 +175,7 @@ export const ReusablePayment = ({
         </div>
       )}
 
-      {activePayment === 'UPI' && (
+      {activePayment === 'upi' && (
         <div className="flex flex-col items-center justify-center">
           <div className="bg-white p-4 rounded-xl border-2 border-dashed border-gray-300 mb-4">
             <img src={qrCodeUrl} alt="UPI QR" className="w-48 h-48" />
@@ -161,7 +190,7 @@ export const ReusablePayment = ({
         </div>
       )}
 
-      {activePayment === 'Card' && (
+      {activePayment === 'card' && (
         <div className="flex flex-col">
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
             <p className="text-sm text-blue-700 font-medium">Please swipe/insert card on the terminal</p>
@@ -195,22 +224,34 @@ export const ReusablePayment = ({
 // MAIN POS TERMINAL COMPONENT
 // ==========================================
 export default function POSTerminal() {
-  // State
+  const navigate = useNavigate();
+  
+  // Session State
+  const [currentSession, setCurrentSession] = useState(null);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  
+  // View State (for navigation between POS, Orders, Customers, Tables)
+  const [activeView, setActiveView] = useState('pos'); // pos, orders, customers, tables
+  
+  // Data State
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [tables, setTables] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   
+  // Cart & Order State
   const [activeCategory, setActiveCategory] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [cart, setCart] = useState([]);
-  const [activePayment, setActivePayment] = useState('Cash');
+  const [activePayment, setActivePayment] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [cardRef, setCardRef] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastOrder, setLastOrder] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  // Modal States
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountCode, setDiscountCode] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -219,7 +260,16 @@ export default function POSTerminal() {
   const defaultCustomer = { id: null, name: 'Walk-in Customer', email: '', phone: '' };
   const [selectedCustomer, setSelectedCustomer] = useState(defaultCustomer);
 
+  // Manager Modal States
   const [showProductManager, setShowProductManager] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showCouponManager, setShowCouponManager] = useState(false);
+  const [showReports, setShowReports] = useState(false);
+  const [showEmployeeManager, setShowEmployeeManager] = useState(false);
+  const [showPaymentMethodManager, setShowPaymentMethodManager] = useState(false);
+  const [showReservationManager, setShowReservationManager] = useState(false);
+  const [showCustomerManager, setShowCustomerManager] = useState(false);
+  const [showOrderList, setShowOrderList] = useState(false);
 
   // Mobile Responsive State
   const [showMobileCartModal, setShowMobileCartModal] = useState(false);
@@ -234,7 +284,8 @@ export default function POSTerminal() {
       fetchCategories(),
       fetchProducts(),
       fetchTables(),
-      fetchCustomers()
+      fetchCustomers(),
+      fetchPaymentMethods()
     ]);
   };
 
@@ -270,14 +321,30 @@ export default function POSTerminal() {
     } catch (err) { console.error("Error fetching customers", err); }
   };
 
+  const fetchPaymentMethods = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/payments`);
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentMethods(data);
+        // Set default active payment to first enabled method
+        const firstEnabled = data.find(m => m.is_enabled);
+        if (firstEnabled) setActivePayment(firstEnabled.type);
+      }
+    } catch (err) { console.error("Error fetching payment methods", err); }
+  };
+
   // Derived Values
   const filteredProducts = activeCategory ? products.filter(p => p.category_id === activeCategory) : products;
   const subtotal = cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
   const tax = subtotal * 0.18; 
   const total = Math.max(0, subtotal + tax - discountAmount);
-  const change = activePayment === 'Cash' ? (parseFloat(cashReceived) || 0) - total : 0;
+  const change = activePayment === 'cash' ? (parseFloat(cashReceived) || 0) - total : 0;
 
-  const upiUrl = `upi://pay?pa=cafe@ybl&pn=OdooCafe&am=${total.toFixed(2)}&cu=INR`;
+  // Get UPI ID from backend payment methods
+  const upiMethod = paymentMethods.find(m => m.type === 'upi' && m.is_enabled);
+  const upiId = upiMethod?.upi_id || "cafe@ybl";
+  const upiUrl = `upi://pay?pa=${upiId}&pn=OdooCafe&am=${total.toFixed(2)}&cu=INR`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
 
   // Cart Functions
@@ -295,7 +362,8 @@ export default function POSTerminal() {
         product_name: product.name,
         quantity: 1,
         unit_price: parseFloat(product.price),
-        line_total: parseFloat(product.price)
+        line_total: parseFloat(product.price),
+        discount: 0
       }]);
     }
   };
@@ -314,11 +382,27 @@ export default function POSTerminal() {
     setCart(cart.filter(item => item.product_id !== productId));
   };
 
+  const loadOrderToCart = (order) => {
+    // Load an existing draft order into the cart for editing
+    setCart(order.items.map(item => ({
+      product_id: item.product_id,
+      product_name: item.product?.name || 'Unknown',
+      quantity: item.quantity,
+      unit_price: parseFloat(item.unit_price),
+      line_total: parseFloat(item.subtotal),
+      discount: 0
+    })));
+    setSelectedTable(order.table || { id: null, table_number: 'Takeaway' });
+    if (order.customer) setSelectedCustomer(order.customer);
+    setActiveView('pos');
+    setShowOrderList(false);
+  };
+
   // API Order Functions
   const handlePayment = async () => {
     if (cart.length === 0) return;
-    if (activePayment === 'Cash' && parseFloat(cashReceived) < total) return;
-    if (activePayment === 'Card' && !cardRef.trim()) {
+    if (activePayment === 'cash' && parseFloat(cashReceived) < total) return;
+    if (activePayment === 'card' && !cardRef.trim()) {
         alert('Please enter Card Transaction Reference');
         return;
     }
@@ -327,7 +411,7 @@ export default function POSTerminal() {
       table_id: selectedTable?.id || null,
       customer_id: selectedCustomer.id || null,
       status: "paid",
-      payment_method: activePayment.toLowerCase(),
+      payment_method: activePayment,
       items: cart.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity,
@@ -358,21 +442,16 @@ export default function POSTerminal() {
           payment_method: activePayment,
           status: 'Paid',
           date: new Date().toLocaleString(),
-          cash_received: activePayment === 'Cash' ? parseFloat(cashReceived) : null,
-          change: activePayment === 'Cash' ? change : 0,
-          card_ref: activePayment === 'Card' ? cardRef : null
+          cash_received: activePayment === 'cash' ? parseFloat(cashReceived) : null,
+          change: activePayment === 'cash' ? change : 0,
+          card_ref: activePayment === 'card' ? cardRef : null
         };
         
         setLastOrder(receiptOrder);
         setShowReceipt(true);
-        setShowMobileCartModal(false); // Close mobile modal
+        setShowMobileCartModal(false);
         
-        setCart([]);
-        setSelectedTable(null);
-        setCashReceived('');
-        setCardRef('');
-        setDiscountAmount(0);
-        setSelectedCustomer(defaultCustomer);
+        resetCart();
         fetchTables(); 
       } else {
         const error = await response.json();
@@ -407,9 +486,8 @@ export default function POSTerminal() {
 
       if (response.ok) {
         alert(`🍳 Order sent to Kitchen!`);
-        setShowMobileCartModal(false); // Close mobile modal
-        setCart([]);
-        setSelectedTable(null);
+        setShowMobileCartModal(false);
+        resetCart();
         fetchTables();
       } else {
         const error = await response.json();
@@ -421,26 +499,56 @@ export default function POSTerminal() {
     }
   };
 
-  const applyDiscount = () => {
-    if (discountCode.toUpperCase() === 'SAVE10') {
-      setDiscountAmount(subtotal * 0.10);
-      alert('✅ 10% Discount Applied!');
-    } else if (discountCode.toUpperCase() === 'FLAT50') {
-      setDiscountAmount(50);
-      alert('✅ ₹50 Discount Applied!');
-    } else {
-      alert('❌ Invalid Coupon Code! Try SAVE10 or FLAT50');
-      return;
+  const resetCart = () => {
+    setCart([]);
+    setSelectedTable(null);
+    setCashReceived('');
+    setCardRef('');
+    setDiscountAmount(0);
+    setSelectedCustomer(defaultCustomer);
+  };
+
+  const applyDiscount = async () => {
+    if (!discountCode.trim()) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: discountCode,
+          subtotal: subtotal
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.valid) {
+        setDiscountAmount(parseFloat(data.discount_amount));
+        alert(data.message);
+      } else {
+        setDiscountAmount(0);
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error("Error validating coupon:", error);
+      alert("Server error while validating coupon");
     }
+
     setShowDiscountModal(false);
     setDiscountCode('');
   };
 
   const handlePrintReceipt = () => {
     if (!lastOrder) return;
-    // Opens the PDF in a new tab
     const receiptUrl = `${API_BASE_URL}/orders/${lastOrder.id}/receipt`;
     window.open(receiptUrl, '_blank');
+  };
+
+  const handleSelectCustomer = (customer) => {
+    setSelectedCustomer(customer);
+    setShowCustomerModal(false);
+    setShowCustomerManager(false);
   };
 
   // Render Helpers
@@ -478,35 +586,64 @@ export default function POSTerminal() {
     </div>
   );
 
+  // ==========================================
+  // SESSION GATE - Block POS access until session is open
+  // ==========================================
+  if (!isSessionActive) {
+    return (
+      <SessionScreen 
+        onSessionOpen={() => setIsSessionActive(true)}
+        onSessionClose={() => setIsSessionActive(false)}
+      />
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-[#f6f6f6] font-inter text-gray-800 relative overflow-hidden">
       
-      {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 z-20 shadow-sm flex-shrink-0">
-        <div className="flex items-center gap-2 lg:gap-6">
-          <button className="bg-[#714B67] text-white font-bold px-3 lg:px-6 py-2 rounded-md shadow-sm hover:bg-[#604058] transition-colors text-sm lg:text-base">
-            Odoo Cafe
-          </button>
-          <div className="relative hidden md:block">
-            <IconSearch className="absolute left-3 top-2.5 text-gray-400" size={20} />
-            <input className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-48 lg:w-64 focus:outline-none focus:ring-2 focus:ring-[#714B67] bg-gray-50" placeholder="Search..." />
-          </div>
-        </div>
+      {/* Shared Header with Navigation */}
+      <SharedHeader 
+        onMenuClick={() => setIsDrawerOpen(true)}
+        showSearch={true}
+      />
 
-        <div className="flex items-center gap-2 lg:gap-5 text-gray-500">
-          {/* <IconPrinter size={20} className="cursor-pointer hover:text-[#714B67] hidden sm:block" />
-          <IconCircleX size={20} className="cursor-pointer hover:text-red-500 hidden sm:block" />
-          <IconShare size={20} className="cursor-pointer hover:text-[#714B67] hidden sm:block" />
-          <IconWifi size={20} className="hidden md:block" />
-          <div className="hidden md:flex items-center gap-1.5 bg-gray-100 rounded-full px-3 py-1 text-xs font-semibold">
-            <IconBattery3 size={16} /> 12 V
+      {/* Navigation Bar (POS Order, Orders, Customer, Table View) */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
+        <NavButton 
+          label="POS Order" 
+          icon={<IconShoppingCart size={18} />} 
+          isActive={activeView === 'pos'} 
+          onClick={() => setActiveView('pos')} 
+        />
+        <NavButton 
+          label="Orders" 
+          icon={<IconClipboardList size={18} />} 
+          isActive={activeView === 'orders'} 
+          onClick={() => setShowOrderList(true)} 
+        />
+        <NavButton 
+          label="Customer" 
+          icon={<IconUsersGroup size={18} />} 
+          isActive={activeView === 'customers'} 
+          onClick={() => setShowCustomerManager(true)} 
+        />
+        <NavButton 
+          label="Table View" 
+          icon={<IconUsers size={18} />} 
+          isActive={activeView === 'tables'} 
+          onClick={() => { setActiveView('pos'); setSelectedTable(null); }} 
+        />
+        
+        <div className="flex-1" />
+        
+        {/* Current Table Indicator */}
+        {selectedTable && (
+          <div className="flex items-center gap-2 bg-[#714B67]/10 text-[#714B67] px-3 py-1.5 rounded-lg font-semibold text-sm">
+            <IconShoppingCart size={16} />
+            Table {selectedTable.table_number}
           </div>
-          <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-[#714B67] flex items-center justify-center font-bold text-white text-sm">@</div> */}
-          <button onClick={() => setIsDrawerOpen(true)} className="p-2 hover:bg-gray-100 rounded-md">
-            <IconMenu2 size={22} />
-          </button>
-        </div>
-      </header>
+        )}
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
@@ -519,20 +656,36 @@ export default function POSTerminal() {
             </div>
           ) : (
             <>
-              {/* Mobile Categories (Horizontal Scroll) */}
+              {/* Mobile Categories (Horizontal Scroll with colors) */}
               <div className="lg:hidden flex overflow-x-auto border-b border-gray-200 p-2 gap-2 bg-gray-50 flex-shrink-0">
                 {categories.map(cat => (
-                  <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all ${activeCategory === cat.id ? 'bg-[#714B67] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                  <button 
+                    key={cat.id} 
+                    onClick={() => setActiveCategory(cat.id)} 
+                    className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all ${
+                      activeCategory === cat.id 
+                        ? 'text-white shadow-sm' 
+                        : 'bg-white text-gray-600 border border-gray-200'
+                    }`}
+                    style={activeCategory === cat.id ? { backgroundColor: cat.color || '#714B67' } : {}}
+                  >
                     {cat.name}
                   </button>
                 ))}
               </div>
 
               <div className="flex-1 flex overflow-hidden">
-                {/* Desktop Categories (Sidebar) */}
+                {/* Desktop Categories (Sidebar with colors) */}
                 <div className="hidden lg:flex w-32 bg-gray-50 border-r border-gray-200 flex-col gap-2 p-3 overflow-y-auto flex-shrink-0">
                   {categories.map(cat => (
-                    <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`py-2.5 px-3 rounded-md font-medium text-sm transition-all text-left ${activeCategory === cat.id ? 'bg-[#714B67] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}>
+                    <button 
+                      key={cat.id} 
+                      onClick={() => setActiveCategory(cat.id)} 
+                      className={`py-2.5 px-3 rounded-md font-medium text-sm transition-all text-left ${
+                        activeCategory === cat.id ? 'text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'
+                      }`}
+                      style={activeCategory === cat.id ? { backgroundColor: cat.color || '#714B67' } : {}}
+                    >
                       {cat.name}
                     </button>
                   ))}
@@ -548,11 +701,17 @@ export default function POSTerminal() {
                       className="border border-gray-200 rounded-lg p-3 lg:p-4 bg-white hover:shadow-md hover:border-[#714B67] cursor-pointer transition-all flex flex-col justify-between text-left disabled:opacity-50"
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${product.is_available ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div 
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: product.is_available ? (categories.find(c => c.id === product.category_id)?.color || '#10b981') : '#ef4444' }}
+                        />
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-800 text-xs lg:text-sm mb-1 line-clamp-2">{product.name}</h3>
                         <p className="text-[#714B67] font-bold text-base lg:text-lg">₹{parseFloat(product.price).toFixed(2)}</p>
+                        {product.unit_of_measure && product.unit_of_measure !== 'piece' && (
+                          <p className="text-[10px] text-gray-400">per {product.unit_of_measure}</p>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -611,6 +770,7 @@ export default function POSTerminal() {
                 setCardRef={setCardRef}
                 onConfirmPayment={handlePayment}
                 qrCodeUrl={qrCodeUrl}
+                paymentMethods={paymentMethods}
               />
             </div>
           ) : (
@@ -673,6 +833,7 @@ export default function POSTerminal() {
                 setCardRef={setCardRef}
                 onConfirmPayment={handlePayment}
                 qrCodeUrl={qrCodeUrl}
+                paymentMethods={paymentMethods}
               />
             </div>
           </div>
@@ -680,7 +841,35 @@ export default function POSTerminal() {
 
       </main>
 
-      {/* Modals (Discount, Customer, Receipt, Drawer) */}
+      {/* Floating Session Status Bar */}
+      {currentSession && (
+        <div className="fixed bottom-4 right-4 bg-white border border-gray-200 shadow-lg rounded-lg p-3 z-30 flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <IconClock size={16} className="text-[#714B67]" />
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Session</p>
+              <p className="text-sm font-bold text-[#714B67]">₹{currentSession.total_sales?.toFixed(2) || '0.00'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shared Drawer */}
+      <SharedDrawer 
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        activePage="dashboard"
+        onOpenProductManager={() => setShowProductManager(true)}
+        onOpenCategoryManager={() => setShowCategoryManager(true)}
+        onOpenCouponManager={() => setShowCouponManager(true)}
+        onOpenReports={() => setShowReports(true)}
+        onOpenEmployeeManager={() => setShowEmployeeManager(true)}
+        onOpenPaymentMethodManager={() => setShowPaymentMethodManager(true)}
+        onOpenReservationManager={() => setShowReservationManager(true)}
+      />
+
+      {/* ============ MODALS ============ */}
+      
       {showDiscountModal && (
         <div className="absolute inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
@@ -693,7 +882,7 @@ export default function POSTerminal() {
               value={discountCode}
               onChange={(e) => setDiscountCode(e.target.value)}
               placeholder="Enter code (Try SAVE10 or FLAT50)" 
-              className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-[#714B67] focus:outline-none"
+              className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-[#714B67] focus:outline-none uppercase"
               autoFocus
             />
             <button onClick={applyDiscount} className="w-full py-3 bg-[#714B67] text-white rounded-lg font-bold hover:bg-[#604058]">
@@ -712,7 +901,7 @@ export default function POSTerminal() {
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
               <button 
-                onClick={() => { setSelectedCustomer(defaultCustomer); setShowCustomerModal(false); }}
+                onClick={() => handleSelectCustomer(defaultCustomer)}
                 className={`w-full text-left p-3 rounded-lg border transition-all ${
                   selectedCustomer.id === null ? 'border-[#714B67] bg-purple-50' : 'border-gray-200 hover:bg-gray-50'
                 }`}
@@ -722,7 +911,7 @@ export default function POSTerminal() {
               {customers.map(cust => (
                 <button 
                   key={cust.id}
-                  onClick={() => { setSelectedCustomer(cust); setShowCustomerModal(false); }}
+                  onClick={() => handleSelectCustomer(cust)}
                   className={`w-full text-left p-3 rounded-lg border transition-all ${
                     selectedCustomer.id === cust.id ? 'border-[#714B67] bg-purple-50' : 'border-gray-200 hover:bg-gray-50'
                   }`}
@@ -732,9 +921,14 @@ export default function POSTerminal() {
                 </button>
               ))}
             </div>
-            <button onClick={() => setShowCustomerModal(false)} className="w-full py-3 bg-gray-100 rounded-lg font-bold hover:bg-gray-200">
-              Close
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowCustomerModal(false)} className="flex-1 py-3 bg-gray-100 rounded-lg font-bold hover:bg-gray-200">
+                Close
+              </button>
+              <button onClick={() => { setShowCustomerModal(false); setShowCustomerManager(true); }} className="flex-1 py-3 bg-[#714B67] text-white rounded-lg font-bold hover:bg-[#604058]">
+                Manage
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -766,7 +960,7 @@ export default function POSTerminal() {
                 <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{lastOrder.discount.toFixed(2)}</span></div>
               )}
               <div className="flex justify-between font-bold text-lg"><span>Total</span><span>₹{lastOrder.total.toFixed(2)}</span></div>
-              {lastOrder.payment_method === 'Cash' && (
+              {lastOrder.payment_method === 'cash' && (
                 <>
                   <div className="flex justify-between text-sm"><span>Cash Received</span><span>₹{lastOrder.cash_received.toFixed(2)}</span></div>
                   <div className="flex justify-between text-sm text-green-600"><span>Change</span><span>₹{lastOrder.change.toFixed(2)}</span></div>
@@ -782,7 +976,10 @@ export default function POSTerminal() {
                 <IconPrinter size={18} /> Print
               </button>
               <button 
-                onClick={() => { alert(`Receipt sent to ${lastOrder.customer.email || 'Walk-in Customer'}!`); setShowReceipt(false); }}
+                onClick={() => { 
+                  alert(`📧 Receipt sent to ${lastOrder.customer?.email || 'Walk-in Customer'}!`);
+                  setShowReceipt(false); 
+                }}
                 className="py-3 bg-[#714B67] text-white rounded-lg font-semibold hover:bg-[#604058]"
               >
                 Email
@@ -792,34 +989,33 @@ export default function POSTerminal() {
         </div>
       )}
 
-      {isDrawerOpen && (
-        <>
-          <div className="absolute inset-0 bg-black bg-opacity-30 z-30" onClick={() => setIsDrawerOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-80 bg-white border-l border-gray-200 shadow-xl z-40 p-6">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b">
-              <h2 className="text-xl font-bold text-[#714B67]">Menu</h2>
-              <button onClick={() => setIsDrawerOpen(false)} className="p-2 hover:bg-gray-100 rounded-md">
-                <IconX size={20} />
-              </button>
-            </div>
-              {/* Updated Menu Items */}
-              <button 
-                onClick={() => { setIsDrawerOpen(false); setShowProductManager(true); }} 
-                className="w-full text-left px-4 py-3 rounded-md font-medium hover:bg-purple-50 hover:text-[#714B67]"
-              >
-                Products
-              </button>
-            {['Category', 'Payment Method', 'Coupons', 'Bookings', 'Employees', 'KDS', 'Reports', 'Log-Out'].map(link => (
-              <button key={link} className="w-full text-left px-4 py-3 rounded-md font-medium hover:bg-purple-50 hover:text-[#714B67]">
-                {link}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Render the Product Manager Modal at the very bottom of the component */}
-      {showProductManager && <ProductManager onClose={() => setShowProductManager(false)} />}
+      {/* ============ MANAGER MODALS ============ */}
+      {showProductManager && <ProductManager onClose={() => { setShowProductManager(false); fetchProducts(); }} />}
+      {showCategoryManager && <CategoryManager onClose={() => { setShowCategoryManager(false); fetchCategories(); }} />}
+      {showCouponManager && <CouponManager onClose={() => setShowCouponManager(false)} />}
+      {showReports && <Reports onClose={() => setShowReports(false)} />}
+      {showEmployeeManager && <EmployeeManager onClose={() => setShowEmployeeManager(false)} />}
+      {showPaymentMethodManager && <PaymentMethodManager onClose={() => { setShowPaymentMethodManager(false); fetchPaymentMethods(); }} />}
+      {showReservationManager && <ReservationManager onClose={() => setShowReservationManager(false)} />}
+      {showCustomerManager && <CustomerManager onClose={() => { setShowCustomerManager(false); fetchCustomers(); }} onSelectCustomer={handleSelectCustomer} />}
+      {showOrderList && <OrderListView session={currentSession} onClose={() => setShowOrderList(false)} onLoadOrderToCart={loadOrderToCart} />}
     </div>
   );
 }
+
+// ==========================================
+// NAV BUTTON HELPER
+// ==========================================
+const NavButton = ({ label, icon, isActive, onClick }) => (
+  <button 
+    onClick={onClick}
+    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+      isActive 
+        ? "bg-[#714B67]/10 text-[#714B67]" 
+        : "text-gray-600 hover:bg-gray-100"
+    }`}
+  >
+    {icon}
+    <span className="hidden sm:inline">{label}</span>
+  </button>
+);

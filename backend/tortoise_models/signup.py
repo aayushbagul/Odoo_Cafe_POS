@@ -7,6 +7,8 @@ class User(Model):
     username = fields.CharField(max_length=255, unique=True)
     email = fields.CharField(max_length=255, null=True)
     password = fields.CharField(max_length=255)
+    role = fields.CharField(max_length=20, default="cashier") # admin, cashier, kitchen
+    is_archived = fields.BooleanField(default=False)
 
     class Meta:
         db_table = "Users"
