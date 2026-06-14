@@ -443,10 +443,10 @@ export default function KDS() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         activePage="kds"
-        onOpenProductManager={() => navigate('/dashboard')} // Navigate to POS for product management
-        onOpenCategoryManager={() => navigate('/dashboard')}
-        onOpenCouponManager={() => navigate('/dashboard')}
-        onOpenReports={() => navigate('/dashboard')}
+        onOpenProductManager={() => navigate('/pos')} // Navigate to POS for product management
+        onOpenCategoryManager={() => navigate('/pos')}
+        onOpenCouponManager={() => navigate('/pos')}
+        onOpenReports={() => navigate('/pos')}
       />
     </div>
   );

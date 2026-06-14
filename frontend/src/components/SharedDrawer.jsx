@@ -14,13 +14,13 @@ export default function SharedDrawer({
   const location = useLocation();
 
   const menuItems = [
-    { label: 'POS Terminal', path: '/dashboard', icon: '🛒', page: 'dashboard' },
-    { label: 'Kitchen Display', path: '/kds', icon: '👨‍🍳', page: 'kds' },
-    { label: 'Products', action: 'products', icon: '📦' },
-    { label: 'Category', action: 'category', icon: '📂' },
-    { label: 'Coupons', action: 'coupons', icon: '🎟️' },
-    { label: 'Reports', action: 'reports', icon: '📊' },
-    { label: 'Log-Out', action: 'logout', icon: '🚪' }
+    { label: 'POS Terminal', path: '/pos', page: 'dashboard' },
+    { label: 'Kitchen Display', path: '/kds', page: 'kds' },
+    { label: 'Products', action: 'products' },
+    { label: 'Category', action: 'category' },
+    { label: 'Coupons', action: 'coupons' },
+    { label: 'Reports', action: 'reports' },
+    { label: 'Log-Out', action: 'logout' }
   ];
 
   const handleItemClick = (item) => {
@@ -80,7 +80,6 @@ export default function SharedDrawer({
                   : 'hover:bg-purple-50 hover:text-[#714B67]'
               }`}
             >
-              <span className="text-lg">{item.icon}</span>
               <span>{item.label}</span>
             </button>
           ))}

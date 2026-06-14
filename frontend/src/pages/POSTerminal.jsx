@@ -263,7 +263,7 @@ export default function POSTerminal() {
   const change = activePayment === 'Cash' ? (parseFloat(cashReceived) || 0) - total : 0;
 
   const upiUrl = `upi://pay?pa=cafe@ybl&pn=OdooCafe&am=${total.toFixed(2)}&cu=INR`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+  const qrCodeUrl = `${API_BASE_URL}/payments/qr?data=${encodeURIComponent(upiUrl)}`;
 
   // Cart Functions
   const addToCart = (product) => {

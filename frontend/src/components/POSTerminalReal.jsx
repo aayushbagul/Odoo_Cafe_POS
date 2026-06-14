@@ -18,7 +18,7 @@ import {
   IconMenu2, IconRefresh, IconUserCircle, IconDiscount2, IconSend, 
   IconDeviceMobile, IconCreditCard, IconX, IconTrash, IconCheck, IconCash,
   IconShoppingCart, IconClipboardList, IconUsersGroup, IconUsers,
-  IconReportMoney, IconClock
+  IconReportMoney, IconClock, IconReceipt
 } from '@tabler/icons-react';
 
 const API_BASE_URL = "http://localhost:8000/api";
@@ -271,6 +271,11 @@ export default function POSTerminal() {
   const [showCustomerManager, setShowCustomerManager] = useState(false);
   const [showOrderList, setShowOrderList] = useState(false);
 
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  
   // Mobile Responsive State
   const [showMobileCartModal, setShowMobileCartModal] = useState(false);
 
@@ -334,6 +339,37 @@ export default function POSTerminal() {
     } catch (err) { console.error("Error fetching payment methods", err); }
   };
 
+  const handleSendEmail = async (e) => {
+    e.preventDefault();
+    setEmailError("");
+
+    if (!emailInput.trim()) {
+      setEmailError("Please enter an email address.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailInput)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      // Simulate API call to send receipt
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      alert(`Receipt sent successfully to ${emailInput}`);
+      setIsEmailModalOpen(false);
+      setEmailInput("");
+    } catch (error) {
+      setEmailError("Failed to send receipt. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   // Derived Values
   const filteredProducts = activeCategory ? products.filter(p => p.category_id === activeCategory) : products;
   const subtotal = cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
@@ -345,7 +381,7 @@ export default function POSTerminal() {
   const upiMethod = paymentMethods.find(m => m.type === 'upi' && m.is_enabled);
   const upiId = upiMethod?.upi_id || "cafe@ybl";
   const upiUrl = `upi://pay?pa=${upiId}&pn=OdooCafe&am=${total.toFixed(2)}&cu=INR`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+  const qrCodeUrl = `${API_BASE_URL}/payments/qr?data=${encodeURIComponent(upiUrl)}`;
 
   // Cart Functions
   const addToCart = (product) => {
@@ -977,12 +1013,78 @@ export default function POSTerminal() {
               </button>
               <button 
                 onClick={() => { 
-                  alert(`📧 Receipt sent to ${lastOrder.customer?.email || 'Walk-in Customer'}!`);
+                  // alert(`📧 Receipt sent to ${lastOrder.customer?.email || 'Walk-in Customer'}!`);
+                  setIsEmailModalOpen(true);
                   setShowReceipt(false); 
                 }}
                 className="py-3 bg-[#714B67] text-white rounded-lg font-semibold hover:bg-[#604058]"
               >
                 Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEmailModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade">
+          <div className="bg-[#e6e9ed] border border-gray-300 rounded-lg shadow-2xl w-96 overflow-hidden animate-pop">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-300 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <IconReceipt className="text-[#714B67]" size={20} />
+                <h3 className="text-[#714B67] font-semibold text-sm">Reciept send via Email</h3>
+              </div>
+              <button 
+                onClick={() => setIsEmailModalOpen(false)}
+                className="text-gray-500 hover:text-gray-800 transition"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <form onSubmit={handleSendEmail}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-gray-600 text-xs font-medium mb-2">Email</label>
+                    <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-md px-3 py-2.5 focus-within:border-[#714B67] focus-within:ring-1 focus-within:ring-[#714B67] transition-all">
+                      <input
+                        type="email"
+                        placeholder="admin@example.com"
+                        className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        disabled={isSending}
+                      />
+                      <button 
+                        type="submit"
+                        disabled={isSending}
+                        className="bg-[#604058] hover:bg-[#714B67] text-white p-2 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSending ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <IconSend size={16} />
+                        )}
+                      </button>
+                    </div>
+                    {emailError && (
+                      <p className="text-red-600 text-xs mt-2">{emailError}</p>
+                    )}
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-[#dcdfe3] border-t border-gray-300 flex justify-end">
+              <button
+                onClick={() => setIsEmailModalOpen(false)}
+                className="px-4 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition"
+              >
+                Cancel
               </button>
             </div>
           </div>

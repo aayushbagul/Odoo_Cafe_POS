@@ -1,67 +1,79 @@
-from fastapi import APIRouter, HTTPException, Depends
-from tortoise_models.coupon import Coupon
+from fastapi import APIRouter, HTTPException, Query, Depends
+from tortoise.expressions import Q
+from tortoise_models.customer import Customer
 from tortoise_models.signup import User
-from schemas.coupon import CouponCreate, CouponResponse, CouponValidateRequest, CouponValidateResponse
-from dependencies import require_role, get_current_user
-from typing import List
-from decimal import Decimal
+from schemas.customer import CustomerResponse, CustomerCreate, CustomerUpdate
+from dependencies import get_current_user
+from pydantic import BaseModel
+from typing import List, Optional
 
 router = APIRouter()
 
-@router.get("", response_model=List[CouponResponse])
-async def get_coupons(current_user: User = Depends(get_current_user)):
-    # Accessible to all logged-in users (cashiers need to see available coupons)
-    return await Coupon.all()
+# ==========================================
+# ROUTES
+# ==========================================
 
-@router.post("", response_model=CouponResponse)
-async def create_coupon(
-    coupon: CouponCreate, 
-    current_user: User = Depends(require_role(["admin"])) # Admin only
+@router.get("", response_model=List[CustomerResponse])
+async def get_customers(
+    search: str = Query(None, description="Search by name, email, or phone"),
+    current_user: User = Depends(get_current_user) # Any logged-in user (cashier/admin)
 ):
-    # Ensure code is uppercase and unique
-    exists = await Coupon.filter(code=coupon.code.upper()).exists()
-    if exists:
-        raise HTTPException(status_code=400, detail="Coupon code already exists")
+    query = Customer.all()
     
-    # Force uppercase before saving
-    coupon_data = coupon.dict()
-    coupon_data['code'] = coupon_data['code'].upper()
-    
-    new_coupon = await Coupon.create(**coupon_data)
-    return new_coupon
-
-@router.post("/validate", response_model=CouponValidateResponse)
-async def validate_coupon(
-    request: CouponValidateRequest, 
-    current_user: User = Depends(get_current_user) # Accessible to all logged-in users (cashiers)
-):
-    # Find active coupon matching the code (case-insensitive)
-    coupon = await Coupon.get_or_none(code=request.code.upper(), is_active=True)
-    
-    if not coupon:
-        return CouponValidateResponse(valid=False, message="❌ Invalid or expired coupon code!")
-        
-    if request.subtotal < coupon.min_order_amount:
-        return CouponValidateResponse(
-            valid=False, 
-            message=f"❌ Minimum order amount of ₹{coupon.min_order_amount} required."
+    # If a search term is provided, filter by Name OR Email OR Phone
+    if search:
+        query = query.filter(
+            Q(name__icontains=search) | 
+            Q(email__icontains=search) | 
+            Q(phone__icontains=search)
         )
         
-    # Calculate discount
-    if coupon.discount_type == 'percentage':
-        discount_amount = request.subtotal * (coupon.discount_value / Decimal('100'))
-    else: # fixed
-        discount_amount = coupon.discount_value
-        
-    # Ensure discount doesn't exceed subtotal
-    if discount_amount > request.subtotal:
-        discount_amount = request.subtotal
-        
-    symbol = '%' if coupon.discount_type == 'percentage' else '₹'
-    msg = f"✅ {coupon.discount_value}{symbol} Discount Applied!"
+    return await query.order_by("-id") # Newest first
+
+@router.post("", response_model=CustomerResponse)
+async def create_customer(
+    customer: CustomerCreate,
+    current_user: User = Depends(get_current_user)
+):
+    new_customer = await Customer.create(**customer.dict(exclude_unset=True))
+    return new_customer
+
+@router.get("/{customer_id}", response_model=CustomerResponse)
+async def get_customer(
+    customer_id: int,
+    current_user: User = Depends(get_current_user)
+):
+    customer = await Customer.get_or_none(id=customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return customer
+
+@router.put("/{customer_id}", response_model=CustomerResponse)
+async def update_customer(
+    customer_id: int,
+    customer: CustomerUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    db_customer = await Customer.get_or_none(id=customer_id)
+    if not db_customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
     
-    return CouponValidateResponse(
-        valid=True, 
-        message=msg, 
-        discount_amount=discount_amount
-    )
+    # Update only the fields that were provided in the request
+    update_data = customer.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_customer, key, value)
+    
+    await db_customer.save()
+    return db_customer
+
+@router.delete("/{customer_id}")
+async def delete_customer(
+    customer_id: int,
+    current_user: User = Depends(get_current_user)
+):
+    customer = await Customer.get_or_none(id=customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    await customer.delete()
+    return {"message": "Customer deleted successfully"}

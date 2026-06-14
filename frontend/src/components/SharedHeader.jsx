@@ -9,7 +9,7 @@ export default function SharedHeader({ onMenuClick, showSearch = true }) {
 
   const handleLogoClick = () => {
     // Navigate to POS Terminal (dashboard)
-    navigate('/dashboard');
+    navigate('/pos');
   };
 
   return (
