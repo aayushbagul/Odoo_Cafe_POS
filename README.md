@@ -67,7 +67,7 @@ python -m venv venv
 
 pip install fastapi "uvicorn[standard]" "tortoise-orm[asyncpg,aiosqlite]" pydantic python-jose PyJWT python-multipart reportlab python-dotenv
 
-# Seed the database (creates SQLite file and populates initial data)
+# Seed the database (populates initial data)
 python seed_data.py
 
 # Start the server
